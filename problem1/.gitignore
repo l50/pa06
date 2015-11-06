@@ -1,3 +1,5 @@
 filetype
 testFile
 *dSYM
+*bin
+*tar

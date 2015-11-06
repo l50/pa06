@@ -7,10 +7,10 @@ generateTar()
     rm -rf test/
 }
 
-generateElf()
+runElf()
 {
-    gcc -Wall -g filetype.c -o filetype-bin
+    ./filetype /bin/ls    
 }
 
 generateTar
-generateElf
+runElf

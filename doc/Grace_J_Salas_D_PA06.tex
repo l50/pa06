@@ -294,7 +294,87 @@ ELF detected
 \subsection*{Problem 1b}
 Magic numbers are used to specify what type of data is in a binary file. Because text files aren't binary files, they do not have a magic number. As a result, a file with a magic number can't be a text file.
 
-\subsection*{Problem 2}
+\pagebreak
 
+\subsection*{Problem 2}
+The following code makes up sizewatch.c: \\
+\begin{lstlisting}
+/**
+ * @file   sizewatch.c
+ * @author Jayson Grace (jaysong@unm.edu)
+ * @author Dominic Salas (dominic.salas@gmail.com)
+ * @date   11/08/2015
+ * @brief  Daemon to keep track of size changes that occur in a file over a 3 minute period.
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <time.h>
+
+void getTime()
+{
+    time_t currentTime;
+    struct tm * timeInfo;
+    time(&currentTime);
+    timeInfo = localtime(&currentTime);
+    printf("[%d-%d-%d %d:%02d:%02d] ", (1 + timeInfo->tm_mon), timeInfo->tm_mday,  (1900+timeInfo->tm_year), timeInfo->tm_hour, timeInfo->tm_min, timeInfo->tm_sec);
+}
+
+int main(int argc, char* argv[])
+{
+    struct stat fileInfo;
+
+    if(stat(argv[1], &fileInfo) == -1)
+    {
+        printf("Error: Input file not found!\n");
+        return -1;
+    }
+
+    getTime();
+    printf("Monitoring File: %s\n", argv[1]);
+
+    off_t fileSize;
+    fileSize = fileInfo.st_size;
+    int i;
+
+    getTime();
+    printf("Initial Size: %d\n", (int) fileSize);
+
+    for(i = 0; i < 18; i++)
+    {
+        if(stat(argv[1], &fileInfo) == -1)
+        {
+            printf("Error: The file has been moved or deleted!\n");
+            return -1;
+        }
+        if((fileSize != fileInfo.st_size))
+        {
+            getTime();
+            printf("Size Changed: Old: %d, New = %d\n", (int)fileSize, (int)fileInfo.st_size);
+            fileSize = fileInfo.st_size;
+        }
+        sleep(10);
+    }
+
+    getTime();
+    printf("Monitoring File terminated, BYE.\n");
+}
+\end{lstlisting}
+
+\pagebreak
+
+The output is as follows: \\
+\begin{lstlisting}
+[11-8-2015 23:06:43] Monitoring File: testFile.txt
+[11-8-2015 23:06:43] Initial Size: 226
+[11-8-2015 23:07:33] Size Changed: Old: 226, New = 492
+[11-8-2015 23:08:33] Size Changed: Old: 492, New = 734
+[11-8-2015 23:08:53] Size Changed: Old: 734, New = 898
+[11-8-2015 23:09:33] Size Changed: Old: 898, New = 717
+[11-8-2015 23:09:43] Monitoring File terminated, BYE.
+\end{lstlisting}
 
 \end{document}

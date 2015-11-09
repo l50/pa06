@@ -13,51 +13,68 @@
 typedef int bool;
 enum { false, true };
 
-bool DEBUG = true;
+bool DEBUG = false;
 
-unsigned char* getMagicNumber(FILE *file)
+/**
+ * @brief Get the magic number from the input file
+ * @param file The file to get the magic number from
+ * @return Magic number
+ */
+unsigned char* getMagicNumber(FILE *file) 
 {
-    long fileSize;
-    unsigned char *fileInfo;
-    fseek (file , 0 , SEEK_END);
-    fileSize = ftell (file);
-    rewind (file);
-    fileInfo = (char *)malloc(fileSize+1);
+  long fileSize;
+  unsigned char *fileInfo;
+  fseek(file, 0, SEEK_END);
+  fileSize = ftell(file);
+  rewind(file);
+  fileInfo = (char *) malloc(fileSize + 1);
 
 
-    fread(fileInfo, sizeof(char), 4, file);
-    if (DEBUG)
+  fread(fileInfo, sizeof(char), 4, file);
+  if (DEBUG)
+  {
     printf("%02hhx%02hhx%02hhx%02hhx\n", fileInfo[0], fileInfo[1], fileInfo[2], fileInfo[3]);
-    return fileInfo;
+    if (fileInfo[0] == 0x1f)
+    {
+      printf("%x\n", fileInfo[0]);
+    }
+  }
+  return fileInfo;
 }
 
+/**
+ * @brief Get the file type based on its magic number
+ * @param fileInfo The information about the file
+ */
 void getFileType(char* fileInfo)
 {
-    int i, j;
-    char pdf[3] = "PDF"; 
-    char jpg[3] = "jpg";
-    char elf[3] = "ELF";
-    char tar[3] = "tar";
-    char sh[3] = "sh";
-    char result[3];
-    bool pdfFound = false;
-    for (i = 1, j = 0; i < 4; i++)
-    {
-        result[j] = fileInfo[i];
-        if (DEBUG)
-            printf("%c\n", fileInfo[i]);
-    }
-    if (strcmp(pdf, result))
-        printf("PDF detected");
-    else if (strcmp(sh, result))
-        printf("sh detected");
-    else if (strcmp(elf, result))
-        printf("ELF detected");
-    else 
-        printf("Invalid file type input!");
+  int i;
+  char pdf[4] = {0x25,0x50,0x44,0x00};
+  char jpg[4] = {0xff,0xd8,0xff,0x00};
+  char elf[4] = {0x7f,0x45,0x4c,0x00};
+  char tar[4] = {0x1f,0x8b,0x08,0x00};
+  char sh[4] = {0x23,0x21,0x2f,0x00};
+  char result[4];
+  for (i = 0; i < 3; i++)
+  {
+    result[i] = fileInfo[i];
+    if (DEBUG)
+      printf("%c\n", fileInfo[i]);
+  }
+  result[3] = 0x00;
+  if (strcmp(pdf, result) == 0)
+    printf("PDF detected\n");
+  else if (strcmp(sh, result) == 0)
+    printf("sh detected\n");
+  else if (strcmp(elf, result) == 0)
+    printf("ELF detected\n");
+  else if (strcmp(tar, result) == 0)
+    printf("tar.gz detected\n");
+  else if (strcmp(jpg, result) == 0)
+    printf("jpg detected\n");
+  else
+    printf("Invalid file type input!\n");
 }
-
-
 
 /**
   @brief Entry into program
@@ -67,26 +84,26 @@ void getFileType(char* fileInfo)
   */
 int main(int argc, char **argv)
 {
-    char* fileInfo;
-    if ( argc != 2 ) 
-    {
-        printf( "usage: %s filename", argv[0] );
-    }
-    else 
-    {
-        FILE *file = fopen( argv[1], "r" );
+  char* fileInfo;
+  if ( argc != 2 )
+  {
+    printf( "usage: %s filename", argv[0] );
+  }
+  else
+  {
+    FILE *file = fopen( argv[1], "r" );
 
-        if ( file == 0 )
-        {
-            printf( "Could not open file\n" );
-        }
-        else 
-        {
-            //            readFile(file);
-            fileInfo = getMagicNumber(file);
-            getFileType(fileInfo);
-        }
+    if ( file == 0 )
+    {
+      printf( "Could not open file\n" );
+      return EXIT_FAILURE;
     }
-    free(fileInfo);
-    return EXIT_SUCCESS;
+    else
+    {
+      fileInfo = getMagicNumber(file);
+      getFileType(fileInfo);
+    }
+  }
+  free(fileInfo);
+  return EXIT_SUCCESS;
 }

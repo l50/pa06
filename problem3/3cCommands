@@ -1,0 +1,3 @@
+write abc abc
+imap ./
+bd -f abc 1

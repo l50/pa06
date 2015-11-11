@@ -37,7 +37,7 @@
 
 \centerline{\author{\textbf{Jayson Grace, Dominic Salas}}}
 
-% Used to set ruls for inserting code
+% Used to set rules for inserting code
 \lstset{
     frame=single,
     breaklines=true,
@@ -167,6 +167,8 @@ int main(int argc, char **argv)
 
 \pagebreak
 
+\centerline{\author{\textbf{Jayson Grace, Dominic Salas}}}
+
 To get a consistent set of tests to run, we created this bash script: \\
 
 \begin{lstlisting}
@@ -239,6 +241,8 @@ elfTest
 
 \pagebreak
 
+\centerline{\author{\textbf{Jayson Grace, Dominic Salas}}}
+
 The output of the bash script is as follows: \\
 
 \begin{lstlisting}
@@ -295,10 +299,11 @@ ELF detected
 Magic numbers are used to specify what type of data is in a binary file. Because text files aren't binary files, they do not have a magic number. As a result, a file with a magic number can't be a text file.
 
 \pagebreak
+\centerline{\author{\textbf{Jayson Grace, Dominic Salas}}}
 
-\subsection*{Problem 2}
+\section*{Problem 2}
 The following code makes up sizewatch.c: \\
-\begin{lstlisting}
+\begin{lstlisting}	
 /**
  * @file   sizewatch.c
  * @author Jayson Grace (jaysong@unm.edu)
@@ -313,69 +318,380 @@ The following code makes up sizewatch.c: \\
 #include <sys/stat.h>
 #include <unistd.h>
 #include <time.h>
+#include <syslog.h>
+
+typedef int bool;
+enum { false, true };
+
+FILE * outputLog;
+
+int fprintf(FILE *stream, const char *format, ...);
 
 void getTime()
 {
-    time_t currentTime;
-    struct tm * timeInfo;
-    time(&currentTime);
-    timeInfo = localtime(&currentTime);
-    printf("[%d-%d-%d %d:%02d:%02d] ", (1 + timeInfo->tm_mon), timeInfo->tm_mday,  (1900+timeInfo->tm_year), timeInfo->tm_hour, timeInfo->tm_min, timeInfo->tm_sec);
+  time_t currentTime;
+  struct tm * timeInfo;
+  time(&currentTime);
+  timeInfo = localtime(&currentTime);
+  fprintf(outputLog, "[%d-%d-%d %d:%02d:%02d] ", (1 + timeInfo->tm_mon), timeInfo->tm_mday,  (1900+timeInfo->tm_year), timeInfo->tm_hour, timeInfo->tm_min, timeInfo->tm_sec);
 }
 
+/**
+ * @brief Entry into program
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return Success (or lackthereof) of program's execution
+ */
 int main(int argc, char* argv[])
 {
-    struct stat fileInfo;
+  struct stat fileInfo;
 
+  pid_t pid, sid;
+
+  // Fork off parent
+  pid = fork();
+
+  // General error check for failure to generate child pid
+  if (pid < 0)
+  {
+    exit(EXIT_FAILURE);
+  }
+
+  // Error check to determine if we can exit parent process
+  if (pid > 0)
+  {
+    exit(EXIT_SUCCESS);
+  }
+
+  // Change file mode mask
+  umask(0);
+
+  // Open output log
+  outputLog = fopen ("output.txt", "w+");
+
+  // Create new SID for child process
+  sid = setsid();
+  if (sid < 0)
+  {
+    exit(EXIT_FAILURE);
+  }
+
+  if(stat(argv[1], &fileInfo) == -1)
+  {
+    fprintf(outputLog, "Error: Input file not found!\n");
+    return -1;
+  }
+
+  getTime();
+  fprintf(outputLog, "Monitoring File: %s\n", argv[1]);
+
+  off_t fileSize;
+  fileSize = fileInfo.st_size;
+  int i;
+
+  close(STDIN_FILENO);
+  close(STDOUT_FILENO);
+  close(STDERR_FILENO);
+
+  getTime();
+  fprintf(outputLog, "Initial Size: %d\n", (int) fileSize);
+
+  for(i = 0; i < 18; i++)
+  {
     if(stat(argv[1], &fileInfo) == -1)
     {
-        printf("Error: Input file not found!\n");
-        return -1;
+      fprintf(outputLog, "Error: The file has been moved or deleted!\n");
+      return -1;
     }
-
-    getTime();
-    printf("Monitoring File: %s\n", argv[1]);
-
-    off_t fileSize;
-    fileSize = fileInfo.st_size;
-    int i;
-
-    getTime();
-    printf("Initial Size: %d\n", (int) fileSize);
-
-    for(i = 0; i < 18; i++)
+    if((fileSize != fileInfo.st_size))
     {
-        if(stat(argv[1], &fileInfo) == -1)
-        {
-            printf("Error: The file has been moved or deleted!\n");
-            return -1;
-        }
-        if((fileSize != fileInfo.st_size))
-        {
-            getTime();
-            printf("Size Changed: Old: %d, New = %d\n", (int)fileSize, (int)fileInfo.st_size);
-            fileSize = fileInfo.st_size;
-        }
-        sleep(10);
+      getTime();
+      fprintf(outputLog, "Size Changed: Old: %d, New = %d\n", (int)fileSize, (int)fileInfo.st_size);
+      fileSize = fileInfo.st_size;
     }
+    sleep(10);
+  }
 
-    getTime();
-    printf("Monitoring File terminated, BYE.\n");
+  getTime();
+  fprintf(outputLog, "Monitoring File terminated, BYE.\n");
+  fclose(outputLog);
+  return EXIT_SUCCESS;
 }
+\end{lstlisting}
+
+While it is running, we make several modifications to test.txt. \\
+
+The output is as follows: \\
+\begin{lstlisting}
+[11-10-2015 10:28:28] Monitoring File: test.txt
+[11-10-2015 10:28:28] Initial Size: 733
+[11-10-2015 10:28:58] Size Changed: Old: 733, New = 371
+[11-10-2015 10:29:38] Size Changed: Old: 371, New = 728
+[11-10-2015 10:29:48] Size Changed: Old: 728, New = 668
+[11-10-2015 10:30:28] Size Changed: Old: 668, New = 618
+[11-10-2015 10:30:58] Size Changed: Old: 618, New = 774
+[11-10-2015 10:31:18] Size Changed: Old: 774, New = 505
+[11-10-2015 10:31:28] Monitoring File terminated, BYE.
+\end{lstlisting}
+
+\section*{Problem 3}
+To get started we created a bash script createVolume.sh, which creates our volume for us: 
+\begin{lstlisting}
+#!/bin/bash
+#
+# createVolume.sh
+#
+# Create a disk volume for problem 3 of pa06.
+#
+# Usage: bash createVolume.sh
+#
+# Jayson Grace, jayson.e.grace@gmail.com, 11/10/2015
+#
+# Last update 11/10/2015 by Jayson Grace, jayson.e.grace@gmail.com
+# 
+
+dd if=/dev/zero of=./Jayson-Grace_Dominic-Salas_437disk bs=1k count=100
+mkfs -t ext2 -N 16 -F Jayson-Grace_Dominic-Salas_437disk
 \end{lstlisting}
 
 \pagebreak
 
-While it is running, we make several modifications to testFile.txt. \\
-The output is as follows: \\
+\centerline{\author{\textbf{Jayson Grace, Dominic Salas}}}
+
+\subsection*{Problem 3a}
+The output from running the command dumpe2fs Jayson-Grace\_Dominic-Salas\_437disk gives us this output, which includes the required information: 
 \begin{lstlisting}
-[11-8-2015 23:06:43] Monitoring File: testFile.txt
-[11-8-2015 23:06:43] Initial Size: 226
-[11-8-2015 23:07:33] Size Changed: Old: 226, New = 492
-[11-8-2015 23:08:33] Size Changed: Old: 492, New = 734
-[11-8-2015 23:08:53] Size Changed: Old: 734, New = 898
-[11-8-2015 23:09:33] Size Changed: Old: 898, New = 717
-[11-8-2015 23:09:43] Monitoring File terminated, BYE.
+dumpe2fs 1.42.9 (4-Feb-2014)
+Filesystem volume name:   <none>
+Last mounted on:          <not available>
+Filesystem UUID:          fde80887-9401-40d6-92fe-444052c81b2b
+Filesystem magic number:  0xEF53
+Filesystem revision #:    1 (dynamic)
+Filesystem features:      ext_attr resize_inode dir_index filetype sparse_super
+Filesystem flags:         signed_directory_hash
+Default mount options:    user_xattr acl
+Filesystem state:         clean
+Errors behavior:          Continue
+Filesystem OS type:       Linux
+Inode count:              16
+Block count:              100
+Reserved block count:     5
+Free blocks:              79
+Free inodes:              5
+First block:              1
+Block size:               1024
+Fragment size:            1024
+Blocks per group:         8192
+Fragments per group:      8192
+Inodes per group:         16
+Inode blocks per group:   2
+Filesystem created:       Tue Nov 10 14:24:00 2015
+Last mount time:          n/a
+Last write time:          Tue Nov 10 14:24:00 2015
+Mount count:              0
+Maximum mount count:      -1
+Last checked:             Tue Nov 10 14:24:00 2015
+Check interval:           0 (<none>)
+Reserved blocks uid:      0 (user root)
+Reserved blocks gid:      0 (group root)
+First inode:              11
+Inode size:	          128
+Default directory hash:   half_md4
+Directory Hash Seed:      2b892f10-82d6-4a43-aa54-83117f6b0e83
+
+
+Group 0: (Blocks 1-99)
+  Primary superblock at 1, Group descriptors at 2-2
+  Block bitmap at 3 (+2), Inode bitmap at 4 (+3)
+  Inode table at 5-6 (+4)
+  79 free blocks, 5 free inodes, 2 directories
+  Free blocks: 21-99
+  Free inodes: 12-16
 \end{lstlisting}
+
+\subsection*{Problem 3b}
+In order to locate the root directory and display it's content we created the bash script 3b.sh:
+\begin{lstlisting}
+#!/bin/bash
+# 
+# 3b.sh
+#
+# Run code for problem 3b of pa06.
+#
+# Usage: bash 3b.sh
+#
+# Jayson Grace, jayson.e.grace@gmail.com, 11/10/2015
+#
+# Last update 11/10/2015 by Jayson Grace, jayson.e.grace@gmail.com
+# 
+
+debugfs Jayson-Grace_Dominic-Salas_437disk -f 3bCommands
+\end{lstlisting}
+
+This script uses the commands listed in the file 3bCommands to get us our desired input through the debugfs utility. The 3bCommands file has the following commands: 
+\begin{lstlisting}
+imap ./
+bd -f ./ 0
+\end{lstlisting}
+The subsequent output from running the 3b.sh bash script includes where the root directory is:
+\begin{lstlisting}
+debugfs: imap ./
+Inode 2 is part of block group 0
+	located at block 5, offset 0x0080
+\end{lstlisting}
+as well as the content:
+\begin{lstlisting}
+debugfs: bd -f ./ 0
+0000  0200 0000 0c00 0102 2e00 0000 0200 0000  ................
+0020  0c00 0202 2e2e 0000 0b00 0000 e803 0a02  ................
+0040  6c6f 7374 2b66 6f75 6e64 0000 0000 0000  lost+found......
+0060  0000 0000 0000 0000 0000 0000 0000 0000  ................
+*
+\end{lstlisting}
+
+\subsection*{Problem 3c}
+To create the text file, we created a python script, gen\_abc.py:
+\begin{lstlisting}
+#!/usr/bin/python
+
+print 'A' * 800 + 'B' * 800 + 'C' * 800
+\end{lstlisting}
+
+\textbf{NOT CORRECT}
+Next, we created a bash script to automate the rest of the work, 3c.sh:
+\begin{lstlisting}
+#!/bin/bash
+# 
+# 3c.sh
+#
+# Run code for problem 3c of pa06.
+#
+# Usage: bash 3c.sh
+#
+# Jayson Grace, jayson.e.grace@gmail.com, 11/10/2015
+#
+# Last update 11/10/2015 by Jayson Grace, jayson.e.grace@gmail.com
+# 
+
+python gen_abc.py > abc
+
+debugfs -w Jayson-Grace_Dominic-Salas_437disk -f 3cCommands
+
+rm abc
+\end{lstlisting}
+This was accompanied by 3cCommands: 
+\begin{lstlisting}
+write abc abc
+imap ./
+bd -f abc 1
+\end{lstlisting}
+This command was used to copy abc to the disk image:
+\begin{lstlisting}
+debugfs: write abc abc
+\end{lstlisting}
+The location of the new file block, as well as the 2nd block of content were retrieved using the following commands:
+\begin{lstlisting}
+debugfs: imap ./
+Inode 2 is part of block group 0
+	located at block 5, offset 0x0080
+debugfs: bd -f abc 1
+0000  4242 4242 4242 4242 4242 4242 4242 4242  BBBBBBBBBBBBBBBB
+*
+1100  4343 4343 4343 4343 4343 4343 4343 4343  CCCCCCCCCCCCCCCC
+*
+\end{lstlisting}
+
+\subsection*{Problem 3d}
+To write to the disk, we first opened debugfs with the -w parameter for our disk image. Next, we created multiple directories using mkdir. After making the fourth directory, we received the following error message: ext2fs\_mkdir: Could not allocate inode in ext2 filesystem. \\
+
+Upon creating the volume we have 5 open inodes to work with, because we specified that it be created with 16 inodes. Each file added to the disk uses an inode. Subsequently, when we wrote the abc file to the disk,  we used one of the five remaining inodes. Each time we created a new directory, we were also using an inode. Once all of the inodes are used up, we are unable to create any new files on the volume.
+
+\subsection*{Problem 3e}
+The code for catfilev is as follows:
+\begin{lstlisting}
+/**
+ * @file   catfilev.c
+ * @author Jayson Grace (jaysong@unm.edu)
+ * @author Dominic Salas (dominic.salas@gmail.com)
+ * @date   11/09/2015
+ * @brief Print out content of file specified in mini file system by its inode number.
+ * @params Number of inode; Path to directory with desired file to read
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <dirent.h>
+#include <string.h>
+
+typedef int bool;
+enum { false, true };
+
+bool DEBUG = true;
+
+/**
+ * @brief Entry into program
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return Success (or lackthereof) of program's execution
+ */
+int main(int argc, char **argv)
+{
+  if(argc == 1)
+  {
+    printf("Usage: %s [directory]\n", *argv);
+    exit(0);
+  }
+
+  struct dirent *file;
+  int inum = atoi(argv[1]);
+  DIR *directory = opendir(argv[2]);
+  while ((file = readdir(directory)) != NULL)
+  {
+    if (DEBUG)
+    {
+      printf("inode %d is for file %s\n", file->d_ino, file->d_name);
+    }
+
+    if (file->d_ino == inum)
+    {
+      int c;
+      FILE *epicFile;
+
+      char* filepath;
+      // Add space for the new string
+      filepath = malloc(strlen(argv[2])+1+4);
+      // copy the path of the file into filepath
+      strcpy(filepath, argv[2]);
+      // add the name of the file to filepath
+      strcat(filepath, file->d_name);
+
+      epicFile = fopen(filepath, "r");
+      if (epicFile)
+      {
+        while ((c = getc(epicFile)) != EOF)
+          putchar(c);
+        fclose(epicFile);
+      }
+    }
+  }
+
+  closedir(directory);
+  return EXIT_SUCCESS;
+}
+\end{lstlisting}
+
+The output from running this code with the parameters 12 (which corresponded to the location of the file abc) and /media/mount gave us the following output with our debug statement turned on:
+\begin{lstlisting}
+node 16 is for file dir3
+inode 12 is for file abc
+800 A B and C's (For the sake of the grader, I'm not going to put 2400 characters in this code block, you know what's in here - it's the output for abc.)
+inode 15 is for file dir2
+inode 13 is for file yeah
+inode 11 is for file lost+found
+inode 2 is for file .
+inode 14 is for file dir1
+inode 2 is for file ..
+\end{lstlisting}
+
 
 \end{document}

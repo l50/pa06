@@ -557,7 +557,12 @@ To create the text file, we created a python script, gen\_abc.py:
 print 'A' * 800 + 'B' * 800 + 'C' * 800
 \end{lstlisting}
 
-\textbf{NOT CORRECT}
+Next, we create a copy of the disk before we right this information to it:
+
+\begin{lstlisting}
+cp Jayson-Grace_Dominic-Salas_437disk Jayson-Grace_Dominic-Salas_437disk-before
+\end{lstlisting}
+
 Next, we created a bash script to automate the rest of the work, 3c.sh:
 \begin{lstlisting}
 #!/bin/bash
@@ -582,22 +587,32 @@ rm abc
 This was accompanied by 3cCommands: 
 \begin{lstlisting}
 write abc abc
-imap ./
-bd -f abc 1
 \end{lstlisting}
 This command was used to copy abc to the disk image:
 \begin{lstlisting}
 debugfs: write abc abc
 \end{lstlisting}
-The location of the new file block, as well as the 2nd block of content were retrieved using the following commands:
+
+We can see from comparing the before and after images that the after image now has this at the end: \\
 \begin{lstlisting}
-debugfs: imap ./
-Inode 2 is part of block group 0
-	located at block 5, offset 0x0080
-debugfs: bd -f abc 1
-0000  4242 4242 4242 4242 4242 4242 4242 4242  BBBBBBBBBBBBBBBB
 *
-1100  4343 4343 4343 4343 4343 4343 4343 4343  CCCCCCCCCCCCCCCC
+0005400 4141 4141 4141 4141 4141 4141 4141 4141
+*
+0005720 4242 4242 4242 4242 4242 4242 4242 4242
+*
+0005a40 4343 4343 4343 4343 4343 4343 4343 4343
+*
+0005d60 000a 0000 0000 0000 0000 0000 0000 0000
+0005d70 0000 0000 0000 0000 0000 0000 0000 0000
+
+\end{lstlisting}
+Which in hex converts to our A's, B's and C's. We can also see with the hex dump the second block of data, which looks like this:
+\begin{lstlisting}
+*
+00004e0 0000 0000 0000 0000 0000 0000 d067 9e67
+00004f0 5d81 f34c c185 744d b7d1 47af 0001 0000
+0000500 000c 0000 0000 0000 937d 5647 0000 0000
+0000510 0000 0000 0000 0000 0000 0000 0000 0000
 *
 \end{lstlisting}
 
@@ -607,6 +622,14 @@ To write to the disk, we first opened debugfs with the -w parameter for our disk
 Upon creating the volume we have 5 open inodes to work with, because we specified that it be created with 16 inodes. Each file added to the disk uses an inode. Subsequently, when we wrote the abc file to the disk,  we used one of the five remaining inodes. Each time we created a new directory, we were also using an inode. Once all of the inodes are used up, we are unable to create any new files on the volume.
 
 \subsection*{Problem 3e}
+In order to run the code for catfilev, I have the 3e.sh script to mount the volume we've created:
+\begin{lstlisting}
+#!/bin/bash
+
+sudo mkdir /media/mount
+sudo mount -t ext2 Jayson-Grace_Dominic-Salas_437disk /media/mount
+\end{lstlisting}
+
 The code for catfilev is as follows:
 \begin{lstlisting}
 /**

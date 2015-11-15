@@ -198,44 +198,6 @@ bool checkBackgroundJob(TokenContainer *tc)
 }
 
 /**
-  @brief Check to see if the input command contains redirection (< or >)
-  @param tc TokenContainer struct with both the tokens and their count
-  @return isIn (1) if input <, isOut (2) if output >, else returns false
- */
-int checkForRedirection(TokenContainer *tc)
-{
-    int isIn = 1;
-    int isOut = 2;
-
-    if (tc->tokenCount == 3)
-    {
-        char *inString = tc->tokens[1];
-        if (inString[0] == '<')
-        {
-            return isIn;
-        }
-        else if (inString[0] == '>')
-        {
-            return isOut;
-        }
-
-        return false;
-    }
-    else if(tc->tokenCount == 4)
-    {
-        char *inString = tc->tokens[2];
-        if (inString[0] == '>')
-        {
-            return isOut;
-        }
-
-        return false;
-    }
-
-    return false;
-}
-
-/**
   @brief Add command to history
   @param tc TokenContainer struct with both the tokens and their count
   */
@@ -295,27 +257,18 @@ bool launchCommands(TokenContainer *tc, char *input)
     pid_t child;
     struct rusage start;
     bool bg = checkBackgroundJob(tc);
+    //Setting our variables for handling redirection and pipes
     bool in = 0;
     bool out = 0;
-    char *input2, *output2;
-    //Check for redirection and set appropriate boolean value for in and out
-//    int redirection = checkForRedirection(tc);
-//    if (redirection == 1) in = 1;
-//    else if (redirection == 2) out = 1;
-
-    //Paolos
-    char outputLocation[1024];
-    char inputLocation[1024];
-    char inputFile[1024];
     int pipeIndex = 0;
-    //strcpy(outputLocation, tc->tokens[3]);
-    int std;
-
+    char fileOut[1024];
+    char fileIn[1024];
 
     preRun(tc);
     getrusage(RUSAGE_CHILDREN, &start);
     addToHistory(input);
 
+    //This sections checks to see if redirection was used or pipe
     int i = 1;
     while (tc->tokens[i] != NULL)
     {
@@ -324,16 +277,19 @@ bool launchCommands(TokenContainer *tc, char *input)
         if (string[0] == '>')
         {
             tc->tokens[i] = '\0';
-            strcpy(outputLocation, tc->tokens[i+1]);
+            strcpy(fileOut, tc->tokens[i+1]);
             out = 1;
             break;
         }
+        //Checks for input redirection (<)
         else if (string[0] == '<')
         {
             tc->tokens[i] = '\0';
-            strcpy(inputFile, tc->tokens[i+1]);
+            strcpy(fileIn, tc->tokens[i+1]);
             in = 1;
+            break;
         }
+        //Checks if pipe (|) was used
         else if (string[0] == '|')
         {
             tc->tokens[i] = '\0';
@@ -367,26 +323,24 @@ bool launchCommands(TokenContainer *tc, char *input)
         {
             if (out)
             {
-                //printf("Inside output redirection\n");
                 char cwd[1024];
                 getcwd(cwd, sizeof(cwd));
                 strcat(cwd, "/");
-                strcat(cwd, outputLocation);
+                strcat(cwd, fileOut);
                 int fd = open(cwd, O_WRONLY | O_CREAT, 0666);
                 dup2(fd, STDOUT_FILENO);
                 close(fd);
-                out = 0;
             }
             if (in)
             {
-                int fd = open(inputFile, O_RDONLY, 0);
+                int fd = open(fileIn, O_RDONLY, 0);
                 dup2(fd, STDIN_FILENO);
                 close(fd);
-                in = 0;
             }
 
-            //Handle piping
-            if(pipeIndex > 0){
+            // Section for handling the usage of a pipe (|)
+            if(pipeIndex > 0)
+            {
 
                 int pd[2];
                 pipe(pd);
@@ -397,7 +351,7 @@ bool launchCommands(TokenContainer *tc, char *input)
                     dup2(pd[0],0);
                     close(pd[1]);
 
-                    //Grabs everything up until the "|" symbol
+                    //Grabs everything up until the pipe (|)
                     char* firstCmds[sizeof(tc->tokens)];
                     int i = 0;
                     for(i=0;i<pipeIndex;i++)
@@ -408,7 +362,7 @@ bool launchCommands(TokenContainer *tc, char *input)
                     //executes
                     if(execvp(firstCmds[0], firstCmds) == -1)
                     {
-                        perror("mini437");
+                        perror("Failed on child process in launchCommands");
                     }
                 }
                 else
@@ -417,18 +371,18 @@ bool launchCommands(TokenContainer *tc, char *input)
                     close(pd[0]);
                     int i = 0;
 
-                    //Grabs everything after the "|" symbol
+                    //Grabs everything after the pipe (|)
                     char* secondCmds[sizeof(tc->tokens)];
                     for(i=pipeIndex+1;i<sizeof(tc->tokens);i++)
                     {
                         secondCmds[i] = (char*) malloc(sizeof(tc->tokens[i]));
                         strcpy(secondCmds[i],tc->tokens[i]);
-                    }//executes them
-                    if(execvp(secondCmds[0],secondCmds) == -1){
-                        perror("mini437");
+                    }//executes
+                    if(execvp(secondCmds[0],secondCmds) == -1)
+                    {
+                        perror("Failed on child process in launchCommands");
                     }
                 }
-                pipeIndex = 0;
             }
 
             if (execvp(tc->tokens[0], tc->tokens) == -1 && !bg)

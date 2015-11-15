@@ -261,8 +261,11 @@ bool launchCommands(TokenContainer *tc, char *input)
     bool in = 0;
     bool out = 0;
     int pipeIndex = 0;
-    char fileOut[1024];
-    char fileIn[1024];
+    //Creates the input and output string arrays and sets them to null
+    char fileOut[strlen(input)];
+    memset(fileOut, 0, sizeof(fileOut));
+    char fileIn[strlen(input)];
+    memset(fileIn, 0, sizeof(fileIn));
 
     preRun(tc);
     getrusage(RUSAGE_CHILDREN, &start);
@@ -324,6 +327,7 @@ bool launchCommands(TokenContainer *tc, char *input)
             if (out)
             {
                 char cwd[1024];
+                memset(cwd, 0, sizeof(cwd));
                 getcwd(cwd, sizeof(cwd));
                 strcat(cwd, "/");
                 strcat(cwd, fileOut);
@@ -352,15 +356,15 @@ bool launchCommands(TokenContainer *tc, char *input)
                     close(pd[1]);
 
                     //Grabs everything up until the pipe (|)
-                    char* firstCmds[sizeof(tc->tokens)];
+                    char* beforePipe[sizeof(tc->tokens)];
                     int i = 0;
                     for(i=0;i<pipeIndex;i++)
                     {
-                        firstCmds[i] = (char*) malloc(sizeof(tc->tokens[i]));
-                        strcpy(firstCmds[i],tc->tokens[i]);
+                        beforePipe[i] = (char*) malloc(sizeof(tc->tokens[i]));
+                        strcpy(beforePipe[i],tc->tokens[i]);
                     }
                     //executes
-                    if(execvp(firstCmds[0], firstCmds) == -1)
+                    if(execvp(beforePipe[0], beforePipe) == -1)
                     {
                         perror("Failed on child process in launchCommands");
                     }
@@ -372,13 +376,13 @@ bool launchCommands(TokenContainer *tc, char *input)
                     int i = 0;
 
                     //Grabs everything after the pipe (|)
-                    char* secondCmds[sizeof(tc->tokens)];
+                    char* afterPipe[sizeof(tc->tokens)];
                     for(i=pipeIndex+1;i<sizeof(tc->tokens);i++)
                     {
-                        secondCmds[i] = (char*) malloc(sizeof(tc->tokens[i]));
-                        strcpy(secondCmds[i],tc->tokens[i]);
+                        afterPipe[i] = (char*) malloc(sizeof(tc->tokens[i]));
+                        strcpy(afterPipe[i],tc->tokens[i]);
                     }//executes
-                    if(execvp(secondCmds[0],secondCmds) == -1)
+                    if(execvp(afterPipe[0],afterPipe) == -1)
                     {
                         perror("Failed on child process in launchCommands");
                     }
